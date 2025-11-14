@@ -1,3 +1,9 @@
+## Use Native
+
+**A Figma plugin sandbox to get native patterns from Figma Community files, and apply local design tokens for brand alignment.**
+
+#### Default readme below:
+
 Below are the steps to get your plugin running. You can also find instructions at:
 
   https://www.figma.com/plugin-docs/plugin-quickstart-guide/
