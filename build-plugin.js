@@ -19,15 +19,20 @@ const escapedHtml = JSON.stringify(htmlContent);
 const htmlAssignment = `(globalThis as any).__html__ = ${escapedHtml};`;
 
 // Remove any existing __html__ assignment first
-// The JSON.stringify creates a very long single-line string, so we need to match it carefully
-// Match from (globalThis as any).__html__ = to the semicolon, handling very long strings
-// Use non-greedy matching but ensure we get the whole assignment
+// Match template literals (backticks) - can span multiple lines
 tsContent = tsContent.replace(/\(globalThis as any\)\.__html__\s*=\s*`[\s\S]*?`\s*;/g, '');
-// For JSON.stringify'd strings, they're on one line but very long - match until semicolon
-tsContent = tsContent.replace(/\(globalThis as any\)\.__html__\s*=\s*"[^"]*"\s*;/g, '');
-// More aggressive: match everything from __html__ = to the next semicolon (non-greedy)
-tsContent = tsContent.replace(/\(globalThis as any\)\.__html__\s*=\s*[^;]+;/g, '');
+// Match double-quoted strings (JSON.stringify output) - can be very long single line
+// Use [\s\S] to match any character including newlines, but be careful with escaped quotes
+tsContent = tsContent.replace(/\(globalThis as any\)\.__html__\s*=\s*"[\s\S]*?"\s*;/g, '');
+// More aggressive: match everything from __html__ = to the next semicolon on a new line or end of string
+// This handles cases where the string might have issues
+tsContent = tsContent.replace(/\(globalThis as any\)\.__html__\s*=\s*[^;]*?;\s*\n/g, '');
 tsContent = tsContent.replace(/const __html__\s*=\s*[^;]+;/g, '');
+
+// Remove any leftover corrupted lines that start with escaped characters from the HTML string
+// These are lines that start with \n\t or similar escaped sequences
+tsContent = tsContent.replace(/^\s*\\n\\t[^\n]*$/gm, '');
+tsContent = tsContent.replace(/^\s*\\n[^\n]*$/gm, '');
 
 // Now inject the HTML at the top of the file (after comments)
 const lines = tsContent.split('\n');

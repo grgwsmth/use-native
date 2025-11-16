@@ -1,191 +1,302 @@
 <style>
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    padding: 16px;
-    margin: 0;
-  }
-  h2 {
-    margin: 0 0 16px 0;
-    font-size: 16px;
-    font-weight: 600;
-  }
-  #status {
-    margin: 16px 0;
-    padding: 12px;
-    border-radius: 6px;
-    background: #f0f0f0;
-    font-size: 13px;
-    line-height: 1.4;
-    min-height: 40px;
-  }
-  #status.success {
-    background: #e6f7e6;
-    color: #1a7f1a;
-  }
-  #status.error {
-    background: #ffe6e6;
-    color: #cc0000;
-  }
-  button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    background: #18a0fb;
-    color: white;
-    font-size: 13px;
-    cursor: pointer;
-    margin-right: 8px;
-  }
-  button:hover {
-    background: #1592e6;
-  }
-  button:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-  }
+	body {
+		font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+		padding: 16px;
+		margin: 0;
+	}
+	h2 {
+		margin: 0 0 16px 0;
+		font-size: 16px;
+		font-weight: 600;
+	}
+	#status {
+		margin: 16px 0;
+		padding: 12px;
+		border-radius: 6px;
+		background: #f0f0f0;
+		font-size: 13px;
+		line-height: 1.4;
+		min-height: 40px;
+	}
+	#status.success {
+		background: #e6f7e6;
+		color: #1a7f1a;
+	}
+	#status.error {
+		background: #ffe6e6;
+		color: #cc0000;
+	}
+	button {
+		padding: 8px 16px;
+		border: none;
+		border-radius: 6px;
+		background: #18a0fb;
+		color: white;
+		font-size: 13px;
+		cursor: pointer;
+	}
+	button:hover {
+		background: #1592e6;
+	}
+	button:disabled {
+		background: #ccc;
+		cursor: not-allowed;
+	}
+	#component-names-input {
+		width: 100%;
+		min-height: 100px;
+		padding: 8px;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		font-size: 13px;
+		font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+		box-sizing: border-box;
+		resize: vertical;
+	}
+	#component-names-input:focus {
+		outline: none;
+		border-color: #18a0fb;
+	}
+	.run-plugin-buttons {
+		display: flex;
+		gap: 16px;
+		margin-top: 20px;
+	}
+	.run-plugin-buttons > button {
+		display: inline-block;
+	}
 </style>
 
 <h2>iOS 18 Component Importer</h2>
-<div id="status">Initializing...</div>
-<div id="instructions" style="display: none; margin: 16px 0; padding: 12px; background: #f0f0f0; border-radius: 6px; font-size: 12px; line-height: 1.6;">
-  <strong>To use this plugin:</strong><br>
-  1. Go to <a href="https://www.figma.com/community/file/1385659531316001292" target="_blank" style="color: #18a0fb;">the iOS 18 Community file</a><br>
-  2. Click "Duplicate" to add it to your drafts<br>
-  3. Open the duplicated file in Figma<br>
-  4. Run this plugin in the duplicated file first to extract component keys<br>
-  5. Then run it in your target file to import the components
+<div id="status">Loading components...</div>
+<div id="components-section" style="display: none">
+	<p style="margin: 0 0 8px 0; font-size: 13px; color: #333">
+		Add the names of pages containing components you want to include. I will include ALL
+		components found on those pages.
+	</p>
+	<textarea
+		id="component-names-input"
+		placeholder="Enter page names separated by commas, e.g., Alerts, Buttons, Cards"
+	></textarea>
+	<p style="margin: 8px 0 0 0; font-size: 11px; color: #666">
+		Enter page names exactly as they appear in the library, separated by commas.
+	</p>
 </div>
-<div id="file-key-section" style="display: none; margin: 16px 0;">
-  <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500;">
-    Or enter your duplicated file key:
-  </label>
-  <input 
-    type="text" 
-    id="file-key-input" 
-    placeholder="File key from duplicated file URL" 
-    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; box-sizing: border-box;"
-  />
-  <p style="font-size: 11px; color: #666; margin: 4px 0 0 0;">
-    Get this from the duplicated file's URL: figma.com/file/[FILE_KEY]/...
-  </p>
-  <button id="use-file-key" style="margin-top: 8px;">Use This File Key</button>
+<div
+	id="instructions"
+	style="
+		display: none;
+		margin: 16px 0;
+		padding: 12px;
+		background: #f0f0f0;
+		border-radius: 6px;
+		font-size: 12px;
+		line-height: 1.6;
+	"
+>
+	<strong>To use this plugin:</strong><br />
+	1. Go to
+	<a
+		href="https://www.figma.com/community/file/1385659531316001292"
+		target="_blank"
+		style="color: #18a0fb"
+		>the iOS 18 Community file</a
+	><br />
+	2. Click "Duplicate" to add it to your drafts<br />
+	3. Open the duplicated file in Figma<br />
+	4. Run this plugin in the duplicated file to select and import components
 </div>
-<button id="extract-btn">Extract Components from Current File</button>
-<button id="cancel">Cancel</button>
+<div id="file-key-section" style="display: none; margin: 16px 0">
+	<label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500">
+		Or enter your duplicated file key:
+	</label>
+	<input
+		type="text"
+		id="file-key-input"
+		placeholder="File key from duplicated file URL"
+		style="
+			width: 100%;
+			padding: 8px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			font-size: 12px;
+			box-sizing: border-box;
+		"
+	/>
+	<p style="font-size: 11px; color: #666; margin: 4px 0 0 0">
+		Get this from the duplicated file's URL: figma.com/file/[FILE_KEY]/...
+	</p>
+	<button id="use-file-key" style="margin-top: 8px">Use This File Key</button>
+</div>
+
+<div class="run-plugin-buttons">
+	<button id="extract-btn" style="display: none">Create Instances</button>
+	<button id="cancel">Cancel</button>
+</div>
 
 <script>
-  const COMMUNITY_FILE_KEY = '1385659531316001292';
-  const FIGMA_API_BASE = 'https://api.figma.com/v1';
-  
-  const statusDiv = document.getElementById('status');
-  const extractButton = document.getElementById('extract-btn');
-  const cancelButton = document.getElementById('cancel');
-  const instructions = document.getElementById('instructions');
-  const fileKeySection = document.getElementById('file-key-section');
-  const fileKeyInput = document.getElementById('file-key-input');
-  const useFileKeyButton = document.getElementById('use-file-key');
+	const COMMUNITY_FILE_KEY = "1385659531316001292";
+	const FIGMA_API_BASE = "https://api.figma.com/v1";
+	const statusDiv = document.getElementById("status");
+	const extractButton = document.getElementById("extract-btn");
+	const cancelButton = document.getElementById("cancel");
+	const instructions = document.getElementById("instructions");
+	const fileKeySection = document.getElementById("file-key-section");
+	const fileKeyInput = document.getElementById("file-key-input");
+	const useFileKeyButton = document.getElementById("use-file-key");
+	const componentsSection = document.getElementById("components-section");
+	const componentNamesInput = document.getElementById("component-names-input");
 
-  function updateStatus(message, type = '') {
-    statusDiv.textContent = message;
-    statusDiv.className = type;
-  }
+	let availableComponents = [];
 
-  // Recursively find all component keys in the API response
-  function findComponentKeys(node, components) {
-    if (node.type === 'COMPONENT' && node.id) {
-      components.push(node.id);
-    }
-    
-    if (node.children && Array.isArray(node.children)) {
-      for (const child of node.children) {
-        findComponentKeys(child, components);
-      }
-    }
-  }
+	function updateStatus(message, type = "") {
+		statusDiv.textContent = message;
+		statusDiv.className = type;
+	}
 
-  // Since we can't use REST API due to CORS, we'll ask the plugin code
-  // to extract components from the current file (if it's the duplicated Community file)
-  function requestComponentsFromCurrentFile() {
-    updateStatus('Requesting components from current file...');
-    // Ask the plugin code to extract components from the current file
-    parent.postMessage({ 
-      pluginMessage: { 
-        type: 'extract-components-from-current-file'
-      } 
-    }, '*');
-  }
+	function getPageNamesFromInput() {
+		if (!componentNamesInput) return [];
+		const input = componentNamesInput.value.trim();
+		if (!input) return [];
 
-  // Listen for messages from the plugin code
-  window.onmessage = (event) => {
-    const msg = event.data.pluginMessage;
-    if (msg) {
-      if (msg.type === 'status') {
-        updateStatus(msg.message);
-        // Keep extract button disabled while processing
-        if (extractButton && msg.message.includes('Creating instances')) {
-          extractButton.disabled = true;
-        }
-      } else if (msg.type === 'success') {
-        updateStatus(msg.message, 'success');
-        // Re-enable extract button
-        if (extractButton) {
-          extractButton.disabled = false;
-        }
-      } else if (msg.type === 'error') {
-        updateStatus(msg.message, 'error');
-        // Re-enable extract button on error
-        if (extractButton) {
-          extractButton.disabled = false;
-        }
-        // Show file key input on error
-        if (fileKeySection) {
-          fileKeySection.style.display = 'block';
-        }
-      } else if (msg.type === 'components-extracted') {
-        if (msg.componentKeys && msg.componentKeys.length > 0) {
-          updateStatus('Found ' + msg.componentKeys.length + ' components!');
-          // Components were extracted, plugin will handle importing
-        } else {
-          updateStatus('No components found in current file. Make sure you\'re running this in the duplicated Community file.', 'error');
-          if (fileKeySection) {
-            fileKeySection.style.display = 'block';
-          }
-        }
-      }
-    }
-  };
+		// Split by comma and clean up each page name
+		return input
+			.split(",")
+			.map((name) => name.trim())
+			.filter((name) => name.length > 0);
+	}
 
-  // Show instructions
-  updateStatus('Ready. Click the button below to extract components from the current file.');
-  if (instructions) {
-    instructions.style.display = 'block';
-  }
-  
-  // Set up extract button
-  if (extractButton) {
-    extractButton.onclick = () => {
-      extractButton.disabled = true;
-      requestComponentsFromCurrentFile();
-    };
-  }
+	// Recursively find all component keys in the API response
+	function findComponentKeys(node, components) {
+		if (node.type === "COMPONENT" && node.id) {
+			components.push(node.id);
+		}
 
-  // Handle file key input
-  if (useFileKeyButton && fileKeyInput) {
-    useFileKeyButton.onclick = () => {
-      const fileKey = fileKeyInput.value.trim();
-      if (fileKey) {
-        updateStatus('Using provided file key...');
-        parent.postMessage({ 
-          pluginMessage: { 
-            type: 'use-file-key',
-            fileKey: fileKey
-          } 
-        }, '*');
-      }
-    };
-  }
+		if (node.children && Array.isArray(node.children)) {
+			for (const child of node.children) {
+				findComponentKeys(child, components);
+			}
+		}
+	}
 
-  cancelButton.onclick = () => {
-    parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
-  };
+	// Request components from the current file
+	function requestComponentsFromCurrentFile() {
+		updateStatus("Loading components from current file...");
+		parent.postMessage(
+			{
+				pluginMessage: {
+					type: "load-components",
+				},
+			},
+			"*"
+		);
+	}
+
+	// Create instances for all components from specified pages
+	function createSelectedInstances() {
+		const pageNames = getPageNamesFromInput();
+		if (pageNames.length === 0) {
+			updateStatus("Please enter at least one page name.", "error");
+			return;
+		}
+		updateStatus(`Finding components from ${pageNames.length} page(s)...`);
+		extractButton.disabled = true;
+		parent.postMessage(
+			{
+				pluginMessage: {
+					type: "create-instances",
+					pageNames: pageNames,
+				},
+			},
+			"*"
+		);
+	}
+
+	// Listen for messages from the plugin code
+	window.onmessage = (event) => {
+		const msg = event.data.pluginMessage;
+		if (msg) {
+			if (msg.type === "status") {
+				updateStatus(msg.message);
+				// Keep extract button disabled while processing
+				if (extractButton && msg.message.includes("Creating instances")) {
+					extractButton.disabled = true;
+				}
+			} else if (msg.type === "success") {
+				updateStatus(msg.message, "success");
+				// Re-enable extract button
+				if (extractButton) {
+					extractButton.disabled = false;
+				}
+			} else if (msg.type === "error") {
+				updateStatus(msg.message, "error");
+				// Re-enable extract button on error
+				if (extractButton) {
+					extractButton.disabled = false;
+				}
+				// Show file key input on error
+				if (fileKeySection) {
+					fileKeySection.style.display = "block";
+				}
+			} else if (msg.type === "components-loaded") {
+				if (msg.components && msg.components.length > 0) {
+					// Store available components for reference
+					availableComponents = msg.components;
+
+					// Show simple ready message - don't show component count until user searches
+					updateStatus("Ready. Enter page names in the textarea below.", "");
+
+					if (componentsSection) {
+						componentsSection.style.display = "block";
+					}
+					if (extractButton) {
+						extractButton.style.display = "block";
+					}
+				} else {
+					updateStatus(
+						"No components found in current file. Make sure you're running this in the duplicated Community file.",
+						"error"
+					);
+					if (fileKeySection) {
+						fileKeySection.style.display = "block";
+					}
+				}
+			}
+		}
+	};
+
+	// Load components when UI is ready
+	setTimeout(() => {
+		requestComponentsFromCurrentFile();
+	}, 100);
+
+	// Set up extract button
+	if (extractButton) {
+		extractButton.onclick = () => {
+			createSelectedInstances();
+		};
+	}
+
+	// Handle file key input
+	if (useFileKeyButton && fileKeyInput) {
+		useFileKeyButton.onclick = () => {
+			const fileKey = fileKeyInput.value.trim();
+			if (fileKey) {
+				updateStatus("Using provided file key...");
+				parent.postMessage(
+					{
+						pluginMessage: {
+							type: "use-file-key",
+							fileKey: fileKey,
+						},
+					},
+					"*"
+				);
+			}
+		};
+	}
+
+	cancelButton.onclick = () => {
+		parent.postMessage({ pluginMessage: { type: "cancel" } }, "*");
+	};
 </script>

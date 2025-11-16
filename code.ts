@@ -1,9 +1,29 @@
 // This plugin imports all components from the iOS 18 and iPadOS 18 Community file
 // and places them as instances on the current page.
-(globalThis as any).__html__ = "<style>\n  body {\n    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n    padding: 16px;\n    margin: 0;\n  }\n  h2 {\n    margin: 0 0 16px 0;\n    font-size: 16px;\n    font-weight: 600;\n  }\n  #status {\n    margin: 16px 0;\n    padding: 12px;\n    border-radius: 6px;\n    background: #f0f0f0;\n    font-size: 13px;\n    line-height: 1.4;\n    min-height: 40px;\n  }\n  #status.success {\n    background: #e6f7e6;\n    color: #1a7f1a;\n  }\n  #status.error {\n    background: #ffe6e6;\n    color: #cc0000;\n  }\n  button {\n    padding: 8px 16px;\n    border: none;\n    border-radius: 6px;\n    background: #18a0fb;\n    color: white;\n    font-size: 13px;\n    cursor: pointer;\n    margin-right: 8px;\n  }\n  button:hover {\n    background: #1592e6;\n  }\n  button:disabled {\n    background: #ccc;\n    cursor: not-allowed;\n  }\n</style>\n\n<h2>iOS 18 Component Importer</h2>\n<div id=\"status\">Initializing...</div>\n<div id=\"instructions\" style=\"display: none; margin: 16px 0; padding: 12px; background: #f0f0f0; border-radius: 6px; font-size: 12px; line-height: 1.6;\">\n  <strong>To use this plugin:</strong><br>\n  1. Go to <a href=\"https://www.figma.com/community/file/1385659531316001292\" target=\"_blank\" style=\"color: #18a0fb;\">the iOS 18 Community file</a><br>\n  2. Click \"Duplicate\" to add it to your drafts<br>\n  3. Open the duplicated file in Figma<br>\n  4. Run this plugin in the duplicated file first to extract component keys<br>\n  5. Then run it in your target file to import the components\n</div>\n<div id=\"file-key-section\" style=\"display: none; margin: 16px 0;\">\n  <label style=\"display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500;\">\n    Or enter your duplicated file key:\n  </label>\n  <input \n    type=\"text\" \n    id=\"file-key-input\" \n    placeholder=\"File key from duplicated file URL\" \n    style=\"width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; box-sizing: border-box;\"\n  />\n  <p style=\"font-size: 11px; color: #666; margin: 4px 0 0 0;\">\n    Get this from the duplicated file's URL: figma.com/file/[FILE_KEY]/...\n  </p>\n  <button id=\"use-file-key\" style=\"margin-top: 8px;\">Use This File Key</button>\n</div>\n<button id=\"extract-btn\">Extract Components from Current File</button>\n<button id=\"cancel\">Cancel</button>\n\n<script>\n  const COMMUNITY_FILE_KEY = '1385659531316001292';\n  const FIGMA_API_BASE = 'https://api.figma.com/v1';\n  \n  const statusDiv = document.getElementById('status');\n  const extractButton = document.getElementById('extract-btn');\n  const cancelButton = document.getElementById('cancel');\n  const instructions = document.getElementById('instructions');\n  const fileKeySection = document.getElementById('file-key-section');\n  const fileKeyInput = document.getElementById('file-key-input');\n  const useFileKeyButton = document.getElementById('use-file-key');\n\n  function updateStatus(message, type = '') {\n    statusDiv.textContent = message;\n    statusDiv.className = type;\n  }\n\n  // Recursively find all component keys in the API response\n  function findComponentKeys(node, components) {\n    if (node.type === 'COMPONENT' && node.id) {\n      components.push(node.id);\n    }\n    \n    if (node.children && Array.isArray(node.children)) {\n      for (const child of node.children) {\n        findComponentKeys(child, components);\n      }\n    }\n  }\n\n  // Since we can't use REST API due to CORS, we'll ask the plugin code\n  // to extract components from the current file (if it's the duplicated Community file)\n  function requestComponentsFromCurrentFile() {\n    updateStatus('Requesting components from current file...');\n    // Ask the plugin code to extract components from the current file\n    parent.postMessage({ \n      pluginMessage: { \n        type: 'extract-components-from-current-file'\n      } \n    }, '*');\n  }\n\n  // Listen for messages from the plugin code\n  window.onmessage = (event) => {\n    const msg = event.data.pluginMessage;\n    if (msg) {\n      if (msg.type === 'status') {\n        updateStatus(msg.message);\n        // Keep extract button disabled while processing\n        if (extractButton && msg.message.includes('Creating instances')) {\n          extractButton.disabled = true;\n        }\n      } else if (msg.type === 'success') {\n        updateStatus(msg.message, 'success');\n        // Re-enable extract button\n        if (extractButton) {\n          extractButton.disabled = false;\n        }\n      } else if (msg.type === 'error') {\n        updateStatus(msg.message, 'error');\n        // Re-enable extract button on error\n        if (extractButton) {\n          extractButton.disabled = false;\n        }\n        // Show file key input on error\n        if (fileKeySection) {\n          fileKeySection.style.display = 'block';\n        }\n      } else if (msg.type === 'components-extracted') {\n        if (msg.componentKeys && msg.componentKeys.length > 0) {\n          updateStatus('Found ' + msg.componentKeys.length + ' components!');\n          // Components were extracted, plugin will handle importing\n        } else {\n          updateStatus('No components found in current file. Make sure you\\'re running this in the duplicated Community file.', 'error');\n          if (fileKeySection) {\n            fileKeySection.style.display = 'block';\n          }\n        }\n      }\n    }\n  };\n\n  // Show instructions\n  updateStatus('Ready. Click the button below to extract components from the current file.');\n  if (instructions) {\n    instructions.style.display = 'block';\n  }\n  \n  // Set up extract button\n  if (extractButton) {\n    extractButton.onclick = () => {\n      extractButton.disabled = true;\n      requestComponentsFromCurrentFile();\n    };\n  }\n\n  // Handle file key input\n  if (useFileKeyButton && fileKeyInput) {\n    useFileKeyButton.onclick = () => {\n      const fileKey = fileKeyInput.value.trim();\n      if (fileKey) {\n        updateStatus('Using provided file key...');\n        parent.postMessage({ \n          pluginMessage: { \n            type: 'use-file-key',\n            fileKey: fileKey\n          } \n        }, '*');\n      }\n    };\n  }\n\n  cancelButton.onclick = () => {\n    parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');\n  };\n</script>\n";
+(globalThis as any).__html__ = "<style>\n\tbody {\n\t\tfont-family: \"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;\n\t\tpadding: 16px;\n\t\tmargin: 0;\n\t}\n\th2 {\n\t\tmargin: 0 0 16px 0;\n\t\tfont-size: 16px;\n\t\tfont-weight: 600;\n\t}\n\t#status {\n\t\tmargin: 16px 0;\n\t\tpadding: 12px;\n\t\tborder-radius: 6px;\n\t\tbackground: #f0f0f0;\n\t\tfont-size: 13px;\n\t\tline-height: 1.4;\n\t\tmin-height: 40px;\n\t}\n\t#status.success {\n\t\tbackground: #e6f7e6;\n\t\tcolor: #1a7f1a;\n\t}\n\t#status.error {\n\t\tbackground: #ffe6e6;\n\t\tcolor: #cc0000;\n\t}\n\tbutton {\n\t\tpadding: 8px 16px;\n\t\tborder: none;\n\t\tborder-radius: 6px;\n\t\tbackground: #18a0fb;\n\t\tcolor: white;\n\t\tfont-size: 13px;\n\t\tcursor: pointer;\n\t}\n\tbutton:hover {\n\t\tbackground: #1592e6;\n\t}\n\tbutton:disabled {\n\t\tbackground: #ccc;\n\t\tcursor: not-allowed;\n\t}\n\t#component-names-input {\n\t\twidth: 100%;\n\t\tmin-height: 100px;\n\t\tpadding: 8px;\n\t\tborder: 1px solid #ddd;\n\t\tborder-radius: 4px;\n\t\tfont-size: 13px;\n\t\tfont-family: \"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;\n\t\tbox-sizing: border-box;\n\t\tresize: vertical;\n\t}\n\t#component-names-input:focus {\n\t\toutline: none;\n\t\tborder-color: #18a0fb;\n\t}\n\t.run-plugin-buttons {\n\t\tdisplay: flex;\n\t\tgap: 16px;\n\t\tmargin-top: 20px;\n\t}\n\t.run-plugin-buttons > button {\n\t\tdisplay: inline-block;\n\t}\n</style>\n\n<h2>iOS 18 Component Importer</h2>\n<div id=\"status\">Loading components...</div>\n<div id=\"components-section\" style=\"display: none\">\n\t<p style=\"margin: 0 0 8px 0; font-size: 13px; color: #333\">\n\t\tAdd the names of pages containing components you want to include. I will include ALL\n\t\tcomponents found on those pages.\n\t</p>\n\t<textarea\n\t\tid=\"component-names-input\"\n\t\tplaceholder=\"Enter page names separated by commas, e.g., Alerts, Buttons, Cards\"\n\t></textarea>\n\t<p style=\"margin: 8px 0 0 0; font-size: 11px; color: #666\">\n\t\tEnter page names exactly as they appear in the library, separated by commas.\n\t</p>\n</div>\n<div\n\tid=\"instructions\"\n\tstyle=\"\n\t\tdisplay: none;\n\t\tmargin: 16px 0;\n\t\tpadding: 12px;\n\t\tbackground: #f0f0f0;\n\t\tborder-radius: 6px;\n\t\tfont-size: 12px;\n\t\tline-height: 1.6;\n\t\"\n>\n\t<strong>To use this plugin:</strong><br />\n\t1. Go to\n\t<a\n\t\thref=\"https://www.figma.com/community/file/1385659531316001292\"\n\t\ttarget=\"_blank\"\n\t\tstyle=\"color: #18a0fb\"\n\t\t>the iOS 18 Community file</a\n\t><br />\n\t2. Click \"Duplicate\" to add it to your drafts<br />\n\t3. Open the duplicated file in Figma<br />\n\t4. Run this plugin in the duplicated file to select and import components\n</div>\n<div id=\"file-key-section\" style=\"display: none; margin: 16px 0\">\n\t<label style=\"display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500\">\n\t\tOr enter your duplicated file key:\n\t</label>\n\t<input\n\t\ttype=\"text\"\n\t\tid=\"file-key-input\"\n\t\tplaceholder=\"File key from duplicated file URL\"\n\t\tstyle=\"\n\t\t\twidth: 100%;\n\t\t\tpadding: 8px;\n\t\t\tborder: 1px solid #ddd;\n\t\t\tborder-radius: 4px;\n\t\t\tfont-size: 12px;\n\t\t\tbox-sizing: border-box;\n\t\t\"\n\t/>\n\t<p style=\"font-size: 11px; color: #666; margin: 4px 0 0 0\">\n\t\tGet this from the duplicated file's URL: figma.com/file/[FILE_KEY]/...\n\t</p>\n\t<button id=\"use-file-key\" style=\"margin-top: 8px\">Use This File Key</button>\n</div>\n\n<div class=\"run-plugin-buttons\">\n\t<button id=\"extract-btn\" style=\"display: none\">Create Instances</button>\n\t<button id=\"cancel\">Cancel</button>\n</div>\n\n<script>\n\tconst COMMUNITY_FILE_KEY = \"1385659531316001292\";\n\tconst FIGMA_API_BASE = \"https://api.figma.com/v1\";\n\n\tconst statusDiv = document.getElementById(\"status\");\n\tconst extractButton = document.getElementById(\"extract-btn\");\n\tconst cancelButton = document.getElementById(\"cancel\");\n\tconst instructions = document.getElementById(\"instructions\");\n\tconst fileKeySection = document.getElementById(\"file-key-section\");\n\tconst fileKeyInput = document.getElementById(\"file-key-input\");\n\tconst useFileKeyButton = document.getElementById(\"use-file-key\");\n\tconst componentsSection = document.getElementById(\"components-section\");\n\tconst componentNamesInput = document.getElementById(\"component-names-input\");\n\n\tlet availableComponents = [];\n\n\tfunction updateStatus(message, type = \"\") {\n\t\tstatusDiv.textContent = message;\n\t\tstatusDiv.className = type;\n\t}\n\n\tfunction getPageNamesFromInput() {\n\t\tif (!componentNamesInput) return [];\n\t\tconst input = componentNamesInput.value.trim();\n\t\tif (!input) return [];\n\n\t\t// Split by comma and clean up each page name\n\t\treturn input\n\t\t\t.split(\",\")\n\t\t\t.map((name) => name.trim())\n\t\t\t.filter((name) => name.length > 0);\n\t}\n\n\t// Recursively find all component keys in the API response\n\tfunction findComponentKeys(node, components) {\n\t\tif (node.type === \"COMPONENT\" && node.id) {\n\t\t\tcomponents.push(node.id);\n\t\t}\n\n\t\tif (node.children && Array.isArray(node.children)) {\n\t\t\tfor (const child of node.children) {\n\t\t\t\tfindComponentKeys(child, components);\n\t\t\t}\n\t\t}\n\t}\n\n\t// Request components from the current file\n\tfunction requestComponentsFromCurrentFile() {\n\t\tupdateStatus(\"Loading components from current file...\");\n\t\tparent.postMessage(\n\t\t\t{\n\t\t\t\tpluginMessage: {\n\t\t\t\t\ttype: \"load-components\",\n\t\t\t\t},\n\t\t\t},\n\t\t\t\"*\"\n\t\t);\n\t}\n\n\t// Create instances for all components from specified pages\n\tfunction createSelectedInstances() {\n\t\tconst pageNames = getPageNamesFromInput();\n\t\tif (pageNames.length === 0) {\n\t\t\tupdateStatus(\"Please enter at least one page name.\", \"error\");\n\t\t\treturn;\n\t\t}\n\t\tupdateStatus(`Finding components from ${pageNames.length} page(s)...`);\n\t\textractButton.disabled = true;\n\t\tparent.postMessage(\n\t\t\t{\n\t\t\t\tpluginMessage: {\n\t\t\t\t\ttype: \"create-instances\",\n\t\t\t\t\tpageNames: pageNames,\n\t\t\t\t},\n\t\t\t},\n\t\t\t\"*\"\n\t\t);\n\t}\n\n\t// Listen for messages from the plugin code\n\twindow.onmessage = (event) => {\n\t\tconst msg = event.data.pluginMessage;\n\t\tif (msg) {\n\t\t\tif (msg.type === \"status\") {\n\t\t\t\tupdateStatus(msg.message);\n\t\t\t\t// Keep extract button disabled while processing\n\t\t\t\tif (extractButton && msg.message.includes(\"Creating instances\")) {\n\t\t\t\t\textractButton.disabled = true;\n\t\t\t\t}\n\t\t\t} else if (msg.type === \"success\") {\n\t\t\t\tupdateStatus(msg.message, \"success\");\n\t\t\t\t// Re-enable extract button\n\t\t\t\tif (extractButton) {\n\t\t\t\t\textractButton.disabled = false;\n\t\t\t\t}\n\t\t\t} else if (msg.type === \"error\") {\n\t\t\t\tupdateStatus(msg.message, \"error\");\n\t\t\t\t// Re-enable extract button on error\n\t\t\t\tif (extractButton) {\n\t\t\t\t\textractButton.disabled = false;\n\t\t\t\t}\n\t\t\t\t// Show file key input on error\n\t\t\t\tif (fileKeySection) {\n\t\t\t\t\tfileKeySection.style.display = \"block\";\n\t\t\t\t}\n\t\t\t} else if (msg.type === \"components-loaded\") {\n\t\t\t\tif (msg.components && msg.components.length > 0) {\n\t\t\t\t\t// Store available components for reference\n\t\t\t\t\tavailableComponents = msg.components;\n\n\t\t\t\t\t// Show simple ready message - don't show component count until user searches\n\t\t\t\t\tupdateStatus(\"Ready. Enter page names in the textarea below.\", \"\");\n\n\t\t\t\t\tif (componentsSection) {\n\t\t\t\t\t\tcomponentsSection.style.display = \"block\";\n\t\t\t\t\t}\n\t\t\t\t\tif (extractButton) {\n\t\t\t\t\t\textractButton.style.display = \"block\";\n\t\t\t\t\t}\n\t\t\t\t} else {\n\t\t\t\t\tupdateStatus(\n\t\t\t\t\t\t\"No components found in current file. Make sure you're running this in the duplicated Community file.\",\n\t\t\t\t\t\t\"error\"\n\t\t\t\t\t);\n\t\t\t\t\tif (fileKeySection) {\n\t\t\t\t\t\tfileKeySection.style.display = \"block\";\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t};\n\n\t// Load components when UI is ready\n\tsetTimeout(() => {\n\t\trequestComponentsFromCurrentFile();\n\t}, 100);\n\n\t// Set up extract button\n\tif (extractButton) {\n\t\textractButton.onclick = () => {\n\t\t\tcreateSelectedInstances();\n\t\t};\n\t}\n\n\t// Handle file key input\n\tif (useFileKeyButton && fileKeyInput) {\n\t\tuseFileKeyButton.onclick = () => {\n\t\t\tconst fileKey = fileKeyInput.value.trim();\n\t\t\tif (fileKey) {\n\t\t\t\tupdateStatus(\"Using provided file key...\");\n\t\t\t\tparent.postMessage(\n\t\t\t\t\t{\n\t\t\t\t\t\tpluginMessage: {\n\t\t\t\t\t\t\ttype: \"use-file-key\",\n\t\t\t\t\t\t\tfileKey: fileKey,\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"*\"\n\t\t\t\t);\n\t\t\t}\n\t\t};\n\t}\n\n\tcancelButton.onclick = () => {\n\t\tparent.postMessage({ pluginMessage: { type: \"cancel\" } }, \"*\");\n\t};\n</script>\n";
+
 
 const COMMUNITY_FILE_KEY = '1385659531316001292';
-const SPACING = 64;
+const VERTICAL_SPACING = 64; // Space between components in the same page column
+const HORIZONTAL_SPACING = 128; // Space between page columns
+
+// Pages to exclude from component import
+const EXCLUDED_PAGES = [
+  'Examples',
+  'App icons',
+  'Bezels',
+  'Color wells and pickers',
+  'System',
+  'Wallpapers',
+  'Widgets',
+  'Colors',
+  'Materials',
+  'Layout guides and safe areas',
+  '_Kit helpers'
+];
+
+// Store components by ID for quick lookup
+const componentsMap = new Map<string, ComponentNode>();
 
 // Helper function to recursively find all components in a node tree
 function findAllComponents(node: BaseNode): ComponentNode[] {
@@ -22,9 +42,15 @@ function findAllComponents(node: BaseNode): ComponentNode[] {
   return components;
 }
 
-// Extract all components from the current file
-async function extractComponentsFromCurrentFile(): Promise<ComponentNode[]> {
+// Extract all components from the current file, excluding specified pages
+async function extractComponentsFromCurrentFile(): Promise<{
+  components: ComponentNode[];
+  excludedPages: string[];
+  allPages: Array<{ name: string; components: ComponentNode[] }>;
+}> {
   const allComponents: ComponentNode[] = [];
+  const excludedPages: string[] = [];
+  const allPages: Array<{ name: string; components: ComponentNode[] }> = [];
 
   // Load all pages first - this is required before accessing page.children
   await figma.loadAllPagesAsync();
@@ -32,12 +58,67 @@ async function extractComponentsFromCurrentFile(): Promise<ComponentNode[]> {
   // Traverse all pages in the current file
   for (const page of figma.root.children) {
     if (page.type === 'PAGE') {
+      const pageName = page.name;
+      
+      // Check if this page should be excluded
+      if (EXCLUDED_PAGES.indexOf(pageName) !== -1) {
+        excludedPages.push(pageName);
+        continue; // Skip this page
+      }
+
       const pageComponents = findAllComponents(page);
       allComponents.push(...pageComponents);
+      
+      // Store page info for later lookup
+      allPages.push({
+        name: pageName,
+        components: pageComponents
+      });
     }
   }
 
-  return allComponents;
+  // Store components in map for quick lookup
+  componentsMap.clear();
+  for (const component of allComponents) {
+    componentsMap.set(component.id, component);
+  }
+
+  return { components: allComponents, excludedPages, allPages };
+}
+
+// Extract components from specific pages by name, grouped by page
+async function extractComponentsFromPages(pageNames: string[]): Promise<Array<{ pageName: string; components: ComponentNode[] }>> {
+  const pageGroups: Array<{ pageName: string; components: ComponentNode[] }> = [];
+  
+  // Load all pages first
+  await figma.loadAllPagesAsync();
+  
+  // Normalize requested page names (case-insensitive)
+  const normalizedPageNames = pageNames.map(name => name.trim().toLowerCase());
+  
+  // Traverse all pages in the current file
+  for (const page of figma.root.children) {
+    if (page.type === 'PAGE') {
+      const pageName = page.name;
+      const normalizedPageName = pageName.toLowerCase();
+      
+      // Check if this page is in the requested list (case-insensitive)
+      if (normalizedPageNames.indexOf(normalizedPageName) !== -1) {
+        // Skip if this page is in the excluded list
+        if (EXCLUDED_PAGES.indexOf(pageName) === -1) {
+          const pageComponents = findAllComponents(page);
+          if (pageComponents.length > 0) {
+            pageGroups.push({
+              pageName: pageName,
+              components: pageComponents
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  return pageGroups;
 }
 
 // Show UI - __html__ is injected by the build script
@@ -74,19 +155,22 @@ figma.ui.onmessage = (msg: {
   componentKeys?: string[];
   error?: string;
   fileKey?: string;
+  componentIds?: string[];
+  componentNames?: string[];
+  pageNames?: string[];
 }) => {
   console.log('Received message from UI:', JSON.stringify(msg));
   try {
-    if (msg.type === 'extract-components-from-current-file') {
-      // Extract components from the current file and create instances directly
-      console.log('Extracting components from current file...');
-      figma.ui.postMessage({ type: 'status', message: 'Extracting components from current file...' });
+    if (msg.type === 'load-components') {
+      // Load components from the current file and send to UI
+      console.log('Loading components from current file...');
+      figma.ui.postMessage({ type: 'status', message: 'Loading components from current file...' });
 
-      // Use async/await to handle the async function
       (async () => {
         try {
-          const components = await extractComponentsFromCurrentFile();
+          const { components, excludedPages, allPages } = await extractComponentsFromCurrentFile();
           console.log('Found components:', components.length);
+          console.log('Excluded pages:', excludedPages);
 
           if (components.length === 0) {
             figma.ui.postMessage({
@@ -96,61 +180,115 @@ figma.ui.onmessage = (msg: {
             return;
           }
 
+          // Send component list to UI with names and IDs, along with excluded pages info
+          const componentList = components.map(comp => ({
+            id: comp.id,
+            name: comp.name
+          }));
+
+          figma.ui.postMessage({
+            type: 'components-loaded',
+            components: componentList,
+            excludedPages: excludedPages,
+            allPages: allPages.map((p: { name: string; components: ComponentNode[] }) => p.name)
+          });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error during extraction';
+          console.error('Error extracting components:', error);
+          figma.ui.postMessage({
+            type: 'error',
+            message: `Error: ${errorMessage}`
+          });
+        }
+      })();
+
+    } else if (msg.type === 'create-instances') {
+      // Create instances for all components from specified pages
+      if (!msg.pageNames || msg.pageNames.length === 0) {
+        figma.ui.postMessage({
+          type: 'error',
+          message: 'No page names provided.'
+        });
+        return;
+      }
+
+      console.log('Creating instances for components from pages:', msg.pageNames);
+      figma.ui.postMessage({
+        type: 'status',
+        message: `Finding components from ${msg.pageNames.length} page(s)...`
+      });
+
+      (async () => {
+        try {
+          // Get components grouped by page
+          const pageGroups = await extractComponentsFromPages(msg.pageNames!);
+          
+          // Count total components
+          const totalComponents = pageGroups.reduce((sum, group) => sum + group.components.length, 0);
+          
+          if (totalComponents === 0) {
+            figma.ui.postMessage({
+              type: 'error',
+              message: `No components found on the specified pages. Please check the page names and try again.`
+            });
+            return;
+          }
+
           figma.ui.postMessage({
             type: 'status',
-            message: `Found ${components.length} components. Creating instances...`
+            message: `Found ${totalComponents} component(s) from ${pageGroups.length} page(s). Creating instances...`
           });
 
-          // Create instances directly from the components
           const instances: InstanceNode[] = [];
-          let currentX = 0;
-          let currentY = 0;
-          let maxHeight = 0;
+          let currentX = 0; // X position for the current page column
           let successCount = 0;
-          const instancesPerRow = 5; // Number of instances per row
+          let totalCreated = 0;
 
-          for (let i = 0; i < components.length; i++) {
-            const component = components[i];
+          // Process each page group
+          for (const pageGroup of pageGroups) {
+            let currentY = 0; // Y position within the current page column
+            let maxColumnWidth = 0; // Track the widest component in this column
 
-            try {
-              // Create an instance of the component
-              const instance = component.createInstance();
+            // Place all components from this page vertically
+            for (const component of pageGroup.components) {
+              try {
+                // Create an instance of the component
+                const instance = component.createInstance();
 
-              // Position the instance
-              instance.x = currentX;
-              instance.y = currentY;
+                // Position the instance
+                instance.x = currentX;
+                instance.y = currentY;
 
-              // Track max height for this row
-              if (instance.height > maxHeight) {
-                maxHeight = instance.height;
+                // Track max width for this column (for horizontal spacing)
+                if (instance.width > maxColumnWidth) {
+                  maxColumnWidth = instance.width;
+                }
+
+                // Add to current page
+                figma.currentPage.appendChild(instance);
+                instances.push(instance);
+                successCount++;
+                totalCreated++;
+
+                // Move down for next component in this page column
+                currentY += instance.height + VERTICAL_SPACING;
+
+                // Update progress
+                if (totalCreated % 10 === 0 || totalCreated === totalComponents) {
+                  figma.ui.postMessage({
+                    type: 'status',
+                    message: `Created ${totalCreated}/${totalComponents} instances...`
+                  });
+                }
+              } catch (error) {
+                console.error(`Error creating instance (${component.name} from ${pageGroup.pageName}):`, error);
+                // Continue with next component
               }
-
-              // Add to current page
-              figma.currentPage.appendChild(instance);
-              instances.push(instance);
-              successCount++;
-
-              // Calculate next position
-              currentX += instance.width + SPACING;
-              
-              // Move to next row if we've placed enough in this row
-              if ((i + 1) % instancesPerRow === 0) {
-                currentX = 0;
-                currentY += maxHeight + SPACING;
-                maxHeight = 0;
-              }
-
-              // Update progress
-              if ((i + 1) % 10 === 0 || i === components.length - 1) {
-                figma.ui.postMessage({
-                  type: 'status',
-                  message: `Created ${i + 1}/${components.length} instances...`
-                });
-              }
-            } catch (error) {
-              console.error(`Error creating instance ${i}:`, error);
-              // Continue with next component
             }
+
+            // Move to the right for the next page column
+            // Add the max width of this column plus horizontal spacing
+            currentX += maxColumnWidth + HORIZONTAL_SPACING;
           }
 
           // Select all instances and zoom to fit
@@ -160,7 +298,7 @@ figma.ui.onmessage = (msg: {
 
             figma.ui.postMessage({
               type: 'success',
-              message: `Successfully created ${successCount} component instances!`
+              message: `Successfully created ${successCount} component instance(s)!`
             });
 
             // Close plugin after a short delay
@@ -174,8 +312,8 @@ figma.ui.onmessage = (msg: {
             });
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error during extraction';
-          console.error('Error extracting components:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error during instance creation';
+          console.error('Error creating instances:', error);
           figma.ui.postMessage({
             type: 'error',
             message: `Error: ${errorMessage}`
